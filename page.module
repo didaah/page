@@ -1,0 +1,615 @@
+<?php
+// $Id$
+
+/**
+ * @Implement of hook_menu()
+ */
+function page_menu() {
+  $items = array();
+  
+  $items['admin/page/%'] = array(
+    'description' => '页面添加或编辑',
+    'load_functions' => array(2 => '%'),
+    'access_arguments' => array('page admin view'),
+    'page_callback' => 'page_admin_lists',
+    'page_arguments' => array(2),
+    'file' => 'page.admin.inc',
+  );
+
+  $items['admin/page/form/fields/%'] = array(
+    'title' => '自定义表单字段管理',
+    'load_functions' => array(4 => array('page_load')),
+    'access_arguments' => array('page admin view'),
+    'page_callback' => 'page_admin_form_fields',
+    'page_arguments' => array(4),
+    'file' => 'page.admin.inc',
+  );
+  
+  // 为所有类型的页面生成 menu
+  if ($infos = module_invoke_all('page_info')) {
+    foreach ($infos as $path => $info) {
+      $items['page/' . $path . '/%'] = array(
+        'description' => '页面浏览',
+        'load_functions' => array(2 => array('page_load_view')),
+        'access_callback' => true,
+        'page_callback' => 'page_view',
+        'page_arguments' => array(2),
+        'file' => 'page.page.inc',
+      );
+    }
+  }
+  
+  return $items; 
+}
+
+/**
+ * @Implement of hook_perm()
+ * 注册权限
+ */
+function page_perm() {
+  $perm = array(
+    'page admin view' => '页面管理',
+  );
+  
+  if ($infos = module_invoke_all('page_channel_info')) {
+    foreach ($infos as $path => $info) {
+      $perm['page admin channel ' . $path] = $info['title'] . '维护';
+    }
+  }
+  
+  return $perm;
+}
+
+/**
+ * @Implement of hook_system_admin_menus()
+ * 注册管理菜单
+ */
+function page_system_admin_menus() {
+  $menus = array();
+  
+  if ($infos = module_invoke_all('page_info')) {
+    foreach ($infos as $path => $info) {
+      $menus[] = array($info['title'], 'admin/page/' . $path);
+    }
+  }
+  
+  return array($menus, t('page', '页面管理'));
+}
+
+/**
+ * @Implement of hook_page_info()
+ */
+function page_page_info() {
+  /**
+   * key 将做为页面路径前缀，如 contact，页面路径则为 page/contact/{$page->pid}
+   */
+  return array(
+    'about' => array(
+      'title' => t('page', '网站介绍'),
+      'description' => t('page', '用于维护关于我们、联系我们、网站简介等功能页面')
+    ),
+    'form' => array(
+      'title' => t('page', '自定义表单'),
+      'description' => t('page', '可用于创建联系表单等')
+    ),
+    'static' => array(
+      'title' => t('page', '其它页面'),
+      'description' => t('page', '用于维护一些临时页面')
+    ),
+  );
+}
+
+function page_load_view($pid) {
+  $args = arg();
+
+  if (empty($args[3]) || empty($GLOBALS['conf']['languages'][$args[3]])) {
+    // 读取当前语言
+    $lang = $GLOBALS['language_code'];
+  } else {
+    // 读取指定语言
+    $lang = $args[3];
+  }
+
+  if ($page = page_load($pid, $lang)) {
+    if ($page->type == $args[1] && $page->languages[$lang] ) {
+      $page->language = $lang; // 所请求的语言
+      return $page;
+    }
+  }
+}
+
+/**
+ * 加载一个页面对象
+ * @param int $pid
+ *  页面 id
+ * @param string $lang
+ *  页面语言，若未指定，则读取全部
+ * @return object $page
+ */
+function page_load($pid, $lang = NULL) {
+  static $data;
+  if (!isset($data[$pid])) {
+    if ($page = db_query('SELECT * FROM {pages} WHERE pid = ?', array($pid), array('return' => 'one'))) {
+
+      $page->nid = $page->pid;
+
+      $page->data = unserialize($page->data);
+
+      $args = array($page->pid);
+
+      $query = 'SELECT title, body, lang FROM {pages_lang} WHERE pid = ?';
+
+      if (!empty($lang)) {
+        $query .= ' AND lang = ?';
+        $args[] = $lang;
+      }
+      
+      $page->languages = array();
+
+      if ($fetch = db_query($query, $args)) {
+        foreach ($fetch as $o) {
+          $page->languages[$o->lang] = $o;
+        }
+      }
+    }
+    $data[$pid] = $page;
+  }
+
+  return $data[$pid];
+}
+
+/**
+ * 页面添加/编辑表单
+ * @param object $page
+ *  一个页面对象
+ * @param array $info
+ *  页面类型设置参数
+ * @return array 
+ */
+function page_form($page, $info = NULL) {
+  
+  $form['fields']['type'] = array(
+    '#type' => 'hidden',
+    '#default_value' => $page->type,
+    '#constant' => 1
+  );
+  
+  $form['fields']['pid'] = array(
+    '#type' => 'hidden',
+    '#default_value' => empty($page->pid) ? 0 : $page->pid,
+    '#constant' => 1
+  );
+  
+  $form['fields']['uid'] = array(
+    '#type' => 'hidden',
+    '#default_value' => empty($page->uid) ? $GLOBALS['user']->uid : $page->uid,
+    '#constant' => 1
+  );
+
+  global $conf, $language_code;
+  
+  $form['fields']['weight'] = array(
+    '#title' => t('page', '排序'),
+    '#type' => 'weight',
+    '#fieldset_legend' => t('page', '基本设置'),
+    '#fieldset_prefix' => 'asc',
+    '#fieldset' => true,
+    '#start' => 0,
+    '#default_value' => !empty($page->weight) ? $page->weight : 0,
+    '#end' => 100
+  );
+  
+  $form['fields']['default_lang'] = array(
+    '#title' => t('page', '默认'),
+    '#type' => 'select',
+    '#fieldset_suffix' => 1,
+    '#options' => $conf['languages'],
+    '#default_value' => $GLOBALS['language_code'],
+    '#description' => t('page', '当没有对应语言的内容时，将使用此处指定的默认语言')
+  );
+
+  $form['fields']['data'] = array();
+
+  $desc = count($conf['languages']) > 3 ? 'desc' : 'asc';
+
+  foreach ($conf['languages'] as $code => $name) {
+    $form['fields']['languages'][$code] = array(
+      '#fieldset_legend' => $name,
+      '#fieldset_suffix' => 1,
+      '#fieldset_prefix' => $desc,
+      '#fieldset' => true,
+    );
+ 
+    $form['fields']['languages'][$code]['delete'] = array(
+      '#title' => t('page', '删除 !lang', array('!lang' => $name)),
+      '#type' => 'checkbox',
+      '#description' => t('page', '如需要删除该语言的内容，请选中此项')
+    );
+ 
+    $form['fields']['languages'][$code]['title'] = array(
+      '#title' => t('page', '!lang 标题', array('!lang' => $name)),
+      '#default_value' => isset($page->languages[$code]) ? $page->languages[$code]->title : '',
+      '#type' => 'textfield',
+    );
+    
+    $form['fields']['languages'][$code]['body'] = array(
+      '#title' => t('page', '!lang 内容', array('!lang' => $name)),
+      '#type' => 'textarea',
+      '#default_value' => isset($page->languages[$code]) ? $page->languages[$code]->body : '',
+      '#attributes' => array('rows' => 8, 'cols' => 60)
+    );
+    
+    dd_get_editor('page_form_type_languages_' . $code . '_body', array(
+      'toolbar' => 'medium',
+      'upload_image' => 1,
+      'swfupload' => 1,
+      'watermark' => 'no',
+      'height' => 300,
+    ));
+  }
+ 
+  $form['fields']['button'] = array(
+    '#type' => 'submit',
+    '#weight' => 1000,
+    '#submit' => 'page_form_submit'
+  );
+  
+  $form['settings'] = array(
+    '#redirect' => isset($info['redirect']) ? $info['redirect'] : url('admin/page/' . $page->type),
+    '#validate' => array('page_form_validate'),
+    '#ajax_validate' => 1,
+    '#values_object' => 1
+  );
+
+  module_alter_all('page_form', $form, $page, $info);
+
+  dd_add_css(dd_get_path('module', 'page') . '/page.admin.css');
+  
+  return $form;
+}
+
+function page_form_validate(&$form, &$v) {
+  return module_invoke_all('page_validate', $v['_dida_values']);
+}
+
+function page_form_submit(&$form, &$v) {
+  if (!empty($v['_dida_values']->pid)) {
+    $args = array('pid');
+    $v['_dida_values']->updated = $_SERVER['REQUEST_TIME'];
+  } else {
+    $v['_dida_values']->updated = $v['_dida_values']->created = $_SERVER['REQUEST_TIME'];
+    $args = NULL;
+  }
+
+  $data = $v['_dida_values']->data;
+
+  unset($v['_dida_values']->data);
+
+  if (db_write_record('pages', $v['_dida_values'], $args)) {
+
+    // 所有语言标题
+    $data['titles'] = array();
+
+    // 保存所有语言内容
+    if (!empty($v['_dida_values']->languages)) {
+      foreach ($v['_dida_values']->languages as $code => $value) {
+        if (!empty($value['delete'])) {
+          // 删除该语言的内容
+          db_exec('DELETE FROM {pages_lang} WHERE pid = ? AND lang = ?', array($v['_dida_values']->pid, $code));
+        } else if (!empty($value['title'])) {
+          $data['titles'][$code] = $value['title'];
+          // 保存内容
+          $value['pid'] = $v['_dida_values']->pid;
+          $value['lang'] = $code;
+          db_replace('pages_lang', $value);
+        }
+      }
+    }
+
+    // 更新所有语言标题
+    page_set_data($v['_dida_values']->pid, $data);
+
+    module_invoke_all('page_save', $v['_dida_values']);
+
+    dd_set_message('操作成功');
+  }
+}
+
+// public page_set_data($id, array $data) {{{ 
+/**
+ * 写入页面序列化数据，通常为所有语言标题及其它配置数据
+ * page_set_data
+ * 
+ * @param int $pid 
+ * @param array $data 
+ * @access public
+ * @return bool
+ */
+function page_set_data($pid, array $data) {
+  if ($old = db_query('SELECT data FROM {pages} WHERE pid = ?',
+  array($pid), array('return' => 'column'))) {
+    if ($old = unserialize($old)) {
+      $data = array_merge($old, $data);
+    }
+  }
+
+  db_exec('UPDATE {pages} SET data = ? WHERE pid = ?', array(serialize($data), $pid));
+
+  return $data;
+}
+// }}}
+
+/**
+ * @Implement of hook_page_form()
+ */
+function page_page_form(&$form, $page, $info) {
+  if ($page->type == 'form') {
+    $form['fields']['data']['access'] = array(
+      '#fieldset_prefix' => 'asc',
+      '#fieldset_legend' => t('page', '表单权限'),
+      '#fieldset_suffix' => 1,
+    );
+
+    if (!empty($page->data['access'])) {
+      $access = $page->data['access'];
+    } else {
+      $access = array();
+    }
+
+    $roles = user_roles_opt();
+
+    $form['fields']['data']['access']['add'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('page', '允许填写的用户组'),
+      '#default_value' => $access['add'],
+      '#description' => t('page', '允许填写表单并提交'),
+      '#options' => $roles
+    );
+
+    $form['fields']['data']['access']['view'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('page', '允许浏览的用户组'),
+      '#description' => t('page', '允许浏览所有用户提交的表单内容'),
+      '#default_value' => $access['view'],
+      '#options' => $roles
+    );
+
+    $form['fields']['data']['access']['update'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('page', '允许管理的用户组'),
+      '#default_value' => $access['update'],
+      '#description' => t('page', '默认只允许超级管理员能用户提交的表单内容'),
+      '#options' => $roles
+    );
+    
+   }
+}
+
+// public page_form_access($op, $field, $node = NULL, $ac = NULL) {{{ 
+/**
+ * page_form_access
+ * 验证自定义表单的权限
+ * 
+ * @param string $op 
+ *  权限类型：add view update
+ * @param object $page
+ *  页面对象
+ * @param object $ac 
+ *  用户对象，默认为当前用户
+ * @access public
+ * @return bool
+ */
+function page_form_is_access($op, $page, $ac = NULL) {
+  if (!$ac) $ac = $GLOBALS['user'];
+  if ($ac->uid == 1) return true;
+  
+  if (empty($page->data['access']) || empty($page->data['access'][$op])) return false;
+
+  foreach ($ac->roles as $rid => $k) {
+    if (in_array($rid, $page->data['access'][$op])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+// }}}
+
+
+/**
+ * @Implement of hook_page_save();
+ */
+function page_page_save($page) {
+  if ($page->type == 'form') {
+    page_get_cache_page_form_id(1);
+  }
+}
+
+// public page_get_cache_page_form_id($clear = NULL) {{{ 
+/**
+ * page_get_cache_page_form_id
+ * 获取所有自定义表单的 id，用于定义字段类型、评论类型等
+ * 
+ * @param bool $clear 
+ *  是否清除缓存，直接从数据库中读取
+ * @access public
+ * @return array
+ */
+function page_get_cache_page_form_id($clear = false) {
+  if ($clear || !$data = var_get('page_cache_form_id')) {
+    if ($fetch = db_query('SELECT pid, default_lang, data FROM {pages} 
+    WHERE type = ? ORDER BY pid ASC', array('form'))) {
+      $data = array();
+      foreach ($fetch as $o) {
+        $data = unserialize($o->data);
+        $data[$o->pid] = $data['titles'][$o->default_lang];
+      }
+    } else {
+      $data = -1;
+    }
+    var_set('page_cache_form_id', $data);
+  }
+  return $data != -1 ? $data : false;
+}
+// }}}
+
+/**
+ * @Implement of hook_field_call_group()
+ */
+function page_field_call_group($type = NULL) {
+  if ($data = page_get_cache_page_form_id()) {
+    $groups = array();
+    foreach ($data as $id => $name) { 
+      $groups['page_form_' . $id] = array(
+        'title' => $name,
+        'not_cache' => true, // 不缓存
+      );
+    }
+    return $type ? $groups[$type] : $groups;
+  }
+}
+
+/**
+ * @Implement of hook_comment_info()
+ */
+function page_comment_info() {
+  $types = array();
+  $types['page_form'] = array(
+    'name' => $name,
+    'user_anonymous' => true, // 允许匿名评论，默认允许，再根据设置判断权限
+    'user_anonymous_mail' => true, // 匿名评论必须输入邮箱，默认为 true
+    'user_anonymous_username' => true, // 匿名评论必须输入昵称，默认为 true
+    'user_anonymous_site' => false, // 匿名评论必须输入主页，默认为 false
+    'user_mail' => true, // 登录用户是否可以输入邮箱
+    'user_site' => true, // 登录用户是否可以输入主页
+    'user_mail_required' => false, // 登录用户是否必须输入邮箱
+    'user_site_required' => false, // 登录用户是否必须输入主页
+    'field_title' => true, // 启用标题，默认为 true
+    'field_title_required' => false, // 必须输入标题，默认为 false
+    'field_title_max' => 255, // 标题最大长度，不超过 255
+    'field_body_required' => true, // 必须输入评论内容，默认为 true
+    'field_body_max' => 50000, // 内容最大长度
+    'field_body_min' => 2, // 内容最小长度
+    'field_captcha_all' => false, // 针对所有人启用验证码，默认为 false
+    'field_captcha_anonymous' => true, // 针对匿名用户启用验证码，默认为 true
+    'number_desc' => true, // 评论倒序。从新到旧
+    'captcha' => array(
+      'image' => true, // 图形验证码，若不使用图形验证码，赋值为 false
+      //'type' => DIDA_CAPTCHA_TYPE_INT, // 验证码文本类型
+     ),
+    'filter_comment' => false, // 评论过滤，只看某某功能
+    'comment_quote' => false, // 评论引用
+    'comment_reply' => false, // 评论回复
+    'watermark' => true, // 通过编辑器上传的图片是否添加水印，默认 true | false
+    'default_status' => 1, // 评论状态，默认为 0：未审核
+    'editor_text' => 1, // 加载 文本编辑器
+  );
+  return $types;
+}
+
+// protected _page_is_page_comment_form($comment) {{{ 
+/**
+ * _page_is_page_comment_form
+ * 判断是否为自定义表单类型，以确定是否需要加载评论、字段相关数据
+ * @param object $comment 
+ * @access protected
+ * @return void
+ */
+function _page_is_page_comment_form($comment) {
+  if (!empty($comment->cid)) $comment->nid = $comment->cid;
+  if ($page = page_load($comment->ext_id)) {
+    return $page->type == 'form';
+  }
+}
+// }}}
+
+/**
+ * @Implement of hook_comment_form() 
+ */
+function page_comment_form(&$form, $comment) {
+  if ($comment->ext_type == 'page_form' && _page_is_page_comment_form($comment)) {
+    field_get_node_form('page', 'page_form_' . $comment->ext_id, $comment, $form);
+    $form['fields']['fields']['#weight'] = -75;
+  }
+}
+
+/**
+ * @Implement of hook_comment_validate() 
+ */
+function page_comment_validate($comment) {
+  if ($comment->ext_type == 'page_form' && _page_is_page_comment_form($comment)) {
+    return field_get_node_validate('page', 'page_form_' . $comment->ext_id, $comment);
+  }
+}
+
+/**
+ * @Implement of hook_comment_save() 
+ */
+function page_comment_save($comment) {
+  if ($comment->ext_type == 'page_form' && _page_is_page_comment_form($comment)) {
+    field_get_node_save('page', 'page_form_' . $comment->ext_id, $comment);
+  }
+}
+
+/**
+ * @Implement of hook_comment_load() 
+ */
+function page_comment_load($comment) {
+  if ($comment->ext_type == 'page_form' && _page_is_page_comment_form($comment)) {
+    field_get_node_load('page', 'page_form_' . $comment->ext_id, $comment);
+  }
+}
+
+/**
+ * @Implement of hook_comment_save() 
+ */
+function page_comment_view($comment) {
+  if ($comment->ext_type == 'page_form') {
+    $comment->nid = $comment->cid;
+    field_get_node_load('page', 'page_form_' . $comment->ext_id, $comment);
+    field_get_node_view('page', 'page_form_' . $comment->ext_id, $comment, 2);
+  
+    $comment->field_html = field_get_node_html('page', $comment, 'page_form_' . $comment->ext_id);
+    
+    $comment->body = $comment->field_html .  '<div>' . $comment->body . '</div>';
+  }
+}
+
+/**
+ * @Implement of hook_comment_is_create()
+ */
+function page_comment_is_create($comment) {
+  if ($comment->ext_type == 'page_form') {
+    $comment->is_create = page_form_is_access('add', page_load($comment->ext_id));
+  }
+}
+
+/**
+ * @Implement of hook_theme()
+ */
+function page_theme() {
+  return array(
+    'page_view' => array(
+      'tpl' => 'page_view.tpl.php',
+      'description' => '页面浏览模板',
+      'args' => array('page'),
+    ),
+  );
+}
+
+/**
+ * @Implement of hook_template_preprocess_x()
+ * 
+ * 页面可按类型创建模板文件：
+ * page_view_{$page->type}.tpl.php
+ * page_view.tpl.php
+ * 
+ */
+function page_template_preprocess_page_view(&$var, $hook) {
+  if (isset($var['page']) && $var['page']->type) {
+    $var['theme_config']->tpl[] = 'page_view_' . $var['page']->type . '.tpl.php';
+  } 
+}
+
+
+

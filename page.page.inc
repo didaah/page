@@ -1,0 +1,45 @@
+<?php
+// $Id$
+
+/**
+ * 页面浏览
+ * @param object $page
+ */
+function page_view($page) {
+  
+  dd_set_title(array($page->languages[$page->language]->title));
+  
+  module_invoke_all('page_view', $page);
+   
+  dd_add_css(dd_get_path('module', 'page') . '/page.css');
+  return theme('page_view', $page);
+}
+
+/**
+ * @Implement of hook_page_view()
+ */
+function page_page_view($page) {
+  if ($page->type != 'form') return;
+
+  $page->comment = new stdClass;
+  
+  if (page_form_is_access('add', $page)) {
+    $comment = new stdClass;
+    $comment->ext_type = 'page_form';
+    $comment->ext_id = $page->pid;
+    $comment->ext_id2 = 0;
+    $comment->title = '';
+    
+    $page->comment->form = dd_get_form('comment_form', $comment);
+  } else {
+    $page->comment->form = system_no_content(t('page', '你没有权限使用该表单'));
+  }
+
+  if (page_form_is_access('view', $page)) {
+    if ($data = comment_ext_view('page_form', $page->pid, 20, 1, 'desc')) {
+      $page->comment->view = $data->view;
+      $page->comment->pager = $data->pager;
+    }
+  }
+
+}

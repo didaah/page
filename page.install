@@ -1,0 +1,141 @@
+<?php
+// $Id$
+
+/**
+ * @Implement of hook_schema()
+ */
+function page_schema() {
+   
+  $schema['pages'] = array(
+    'description' => '多语言页面',
+    'fields' => array(
+      'pid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '类型',
+      ),
+      'default_lang' => array(
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '默认语言',
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '排序',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '创建用户 id',
+      ),
+      'data' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'serialize' => true,
+        'description' => '保存所有语言的文章标题和发布时间及其它数据'
+      ),
+      'created' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '创建时间',
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '修改时间',
+      ),
+    ),
+    'indexes' => array(
+      'tc' => array('type', 'created'),
+      'tu' => array('type', 'updated'),
+      'twc' => array('type', 'weight', 'created'),
+      'tuid' => array('type', 'uid'),
+    ),
+    'primary key' => array('pid'),
+  );
+   
+  $schema['pages_lang'] = array(
+    'description' => '不同语言下的页面标题与内容',
+    'fields' => array(
+      'pid' => array(
+        'type' => 'int',
+        'default' => 0,
+        'description' => '关联 pages 表',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'lang' => array(
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '页面语言',
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '标题',
+      ),
+      'body' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => '内容'
+      ),
+    ),
+    'unique keys' => array(
+      'pl' => array('pid', 'lang'),
+    ),
+    'foreign keys' => array(
+      'pid' => array(
+        'table' => 'pages',
+        'field' => 'pid',
+        'update' => 'cascade',
+        'delete' => 'cascade'
+      ),
+    ),
+  );
+  
+  return $schema;
+}
+
+/**
+ * @Implement of hook_install()
+ */
+function page_install() {
+  $ret = array();
+  $ret = module_install_schema('install', 'page');
+  return $ret;
+}
+
+/**
+ * @Implement of hook_uninstall()
+ */
+function page_uninstall() {
+  $ret = array();
+  $ret = module_install_schema('uninstall', 'page');
+  
+  db_exec('DELETE FROM {variable} WHERE name LIKE ?', array('page_%'));
+  var_init();
+  
+  return $ret;
+}

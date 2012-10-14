@@ -1,0 +1,8 @@
+<?php
+// $Id$
+$info = array(
+  'name' => '页面',
+  'description' => '提供页面接口，可添加页面类型/页面，一般用于创建类似关于我们、联系我们等简单页面',
+  'ver' => '1.0',
+  'language' => 'zh-hans',
+);

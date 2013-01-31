@@ -474,8 +474,9 @@ function page_field_call_group($type = NULL) {
  */
 function page_comment_info() {
   $types = array();
+
   $types['page_form'] = array(
-    'name' => $name,
+    'name' => t('page', '自定义表单评论'),
     'user_anonymous' => true, // 允许匿名评论，默认允许，再根据设置判断权限
     'user_anonymous_mail' => true, // 匿名评论必须输入邮箱，默认为 true
     'user_anonymous_username' => true, // 匿名评论必须输入昵称，默认为 true
@@ -502,8 +503,9 @@ function page_comment_info() {
     'comment_reply' => false, // 评论回复
     'watermark' => true, // 通过编辑器上传的图片是否添加水印，默认 true | false
     'default_status' => 1, // 评论状态，默认为 0：未审核
-    'editor_text' => 1, // 加载 文本编辑器
+    'editor' => true, // 加载 文本编辑器
   );
+
   return $types;
 }
 

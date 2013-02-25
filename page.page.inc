@@ -41,5 +41,27 @@ function page_page_view($page) {
       $page->comment->pager = $data->pager;
     }
   }
-
 }
+
+// public page_page_channel($type) {{{ 
+/**
+ * page_page_channel
+ * 频道浏览页面
+ * 
+ * @param string $type 
+ *  频道系统名称
+ * @access public
+ * @return string
+ */
+function page_page_channel($type) {
+  if (!$info = page_get_channel_info($type)) dd_get_not();
+  $channel = (object) $info;
+  $channel->type = $type;
+  $channel->content = '';
+
+  if ($data = dd_get_storage('channel_' . $type)) {
+  }
+
+  return theme('page_channel', $channel);
+}
+// }}}

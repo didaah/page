@@ -186,3 +186,66 @@ function page_page_admin_links($page, &$links, $path) {
     $links['view'] = l(t('page', '查看留言'), 'page/form/' . $page->pid, array('fragment' => 'comment_view_wrapper'));
   }
 }
+
+/**
+ * 频道内容定制
+ * @param (string) $name
+ *  频道 key
+ */
+function page_admin_channel($key) {
+
+  if (!$info = page_get_channel_info($key)) dd_get_not();
+  
+  dd_set_breadcrumb(array(t('page', '!title内容维护', array('!title' => $info['title']))));
+  
+  if (empty($info['blocks']) && !is_array($info['blocks'])) {
+    return system_no_content(t('page', '未定义任何区块，无法进行内容维护'));
+  }
+  
+  $args = arg();
+  
+  if ($args[4]) {
+    if (empty($info['blocks'][$args[4]]) || (!empty($args[5]) 
+    && empty($info['blocks'][$args[4]]['block'][$args[5]]))) {
+      dd_set_message(t('page', '错误的请求'));
+      dd_goto('admin/page/channel/' . $key);
+    }
+    if (!empty($args[5])) {
+      $right = dd_storage_admin('channel_' . $key, $args[4] . '_' . $args[5]);
+    } else {
+      $right = dd_storage_admin('channel_' . $key, $args[4]);
+    }
+  } else {
+    $right = system_no_content(t('page', '请选择一个区块'));
+  }
+  
+  $items = array();
+  
+  foreach ($info['blocks'] as $name => $block) {
+    if (empty($block['title'])) continue;
+    
+    if (empty($block['group'])) {
+      $items[] = l($block['title'], "admin/page/channel/$key/$name");
+    } else if (!empty($block['block']) && is_array($block['block'])) {
+      $item = array();
+      foreach ($block['block'] as $n => $b) {
+        if (empty($b['title'])) continue;
+        $item[] = l($b['title'], "admin/page/channel/$key/$name/$n");
+      }
+      $items[] = theme('item_list', $item, $block['title'], 'ul', array('class' => 'admin_page_channel_block_links_sub'));
+    }
+    
+  }
+  
+  $output = '<table id="admin_page_channel"><tr><td id="admin_page_channel_left" width="160px" valign="top">';
+  $output .= theme('item_list', $items, NULL, 'ul', array('id' => 'admin_page_channel_block_links'));
+  $output .= '</td><td id="admin_page_channel_right" valign="top">';
+  $output .= $right;
+  $output .= '</td></tr></table>';
+  
+  dd_add_css(dd_get_path('module', 'page') . '/page.admin.css');
+  
+  return $output;
+}
+
+

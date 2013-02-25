@@ -38,8 +38,52 @@ function page_menu() {
       );
     }
   }
+   
+  // 所有定制的频道
+  if ($infos = page_get_channel_info()) {
+    foreach ($infos as $key => $info) {
+      $items['admin/page/channel/' . $key] = array(
+        'title' => $info['title'] . '维护',
+        'access_arguments' => array('page admin channel ' . $key),
+        'page_callback' => 'page_admin_channel',
+        'page_arguments' => array(3),
+        'file' => 'page.admin.inc',
+      );
+
+      $path = !empty($info['path']) ? $info['path'] : $key;
+
+      if ($path != 'front') {
+        $items[$path] = array(
+          'title' => $info['title'],
+          'access_arguments' => array('page channel view ' . $key),
+          'page_callback' => 'page_page_channel',
+          'page_arguments' => array($key),
+          'file' => 'page.page.inc',
+        );
+      }
+    }
+  }
   
   return $items; 
+}
+
+/**
+ * @Implement of hoo_menu_alter()
+ */
+function page_menu_alter($path, &$menu) {
+  if ($infos = page_get_channel_info()) {
+    foreach ($infos as $key => $info) {
+      $url = !empty($info['path']) ? $info['path'] : $key;
+      if ($path == $url) {
+        $menu['title'] = $info['title'];
+        $menu['access_arguments'] = array('page channel view ' . $key);
+        $menu['page_callback'] = 'page_page_channel';
+        $menu['page_arguments'] = array($key);
+        $menu['file'] = 'page.page.inc';
+        break;
+      }
+    }
+  }
 }
 
 /**
@@ -54,6 +98,7 @@ function page_perm() {
   if ($infos = module_invoke_all('page_channel_info')) {
     foreach ($infos as $path => $info) {
       $perm['page admin channel ' . $path] = $info['title'] . '维护';
+      $perm['page channel view ' . $path] = $info['title'] . '浏览';
     }
   }
   
@@ -70,6 +115,12 @@ function page_system_admin_menus() {
   if ($infos = module_invoke_all('page_info')) {
     foreach ($infos as $path => $info) {
       $menus[] = array($info['title'], 'admin/page/' . $path);
+    }
+  }
+   
+  if ($infos = module_invoke_all('page_channel_info')) {
+    foreach ($infos as $path => $info) {
+      $menus[] = array(t('page', '!title维护', array('!title' => $info['title'])), 'admin/page/channel/' . $path);
     }
   }
   
@@ -592,9 +643,19 @@ function page_comment_is_create($comment) {
 function page_theme() {
   return array(
     'page_view' => array(
-      'tpl' => 'page_view.tpl.php',
+      'tpl' => 'view_page.tpl.php', // 防止与 page_view.tpl.php 冲突
       'description' => '页面浏览模板',
       'args' => array('page'),
+    ),
+    'page_channel' => array(
+      'tpl' => 'channel_page.tpl.php',
+      'description' => '频道页面模板',
+      'args' => array('channel'),
+    ),
+    'page_channel_block' => array(
+      'tpl' => 'channel_block_page.tpl.php',
+      'description' => '频道内容区块模板',
+      'args' => array('channel', 'block'),
     ),
   );
 }
@@ -602,16 +663,247 @@ function page_theme() {
 /**
  * @Implement of hook_template_preprocess_x()
  * 
+ * 频道页面可按频道系统名称创建模板文件：
+ * channel_page_{$channel->type}.tpl.php
+ * channel_page.tpl.php
+ * 
+ */
+function page_template_preprocess_page_channel(&$var, $hook) {
+  if (isset($var['channel']) && $var['channel']->type) {
+    $var['theme_config']->tpl[] = 'channel_page_' . $var['channel']->type . '.tpl.php';
+  } 
+}
+
+/**
+ * @Implement of hook_template_preprocess_x()
+ * 
+ * 频道内容区块可按频道系统名称/区块类型/区块系统编号创建模板文件：
+ * channel_block_page_{$block->type}_{$channel->type}_{$block->delta}.tpl.php
+ * channel_block_page_{$block->type}_{$channel->type}.tpl.php
+ * channel_block_page_{$block->type}.tpl.php
+ * channel_block_page.tpl.php
+ * 
+ */
+function page_template_preprocess_page_channel_block(&$var, $hook) {
+  if (isset($var['channel']) && !empty($var['block'])) {
+    $var['theme_config']->tpl[] = 'channel_block_page_' .  $var['block']->type . '_' . $var['channel']->type . '_' . $var['block']->delta . '.tpl.php';
+    $var['theme_config']->tpl[] = 'channel_block_page_' .  $var['block']->type . '_' . $var['channel']->type . '.tpl.php';
+    $var['theme_config']->tpl[] = 'channel_block_page_' . $var['block']->type . '.tpl.php';
+  } 
+}
+
+/**
+ * @Implement of hook_template_preprocess_x()
+ * 
  * 页面可按类型创建模板文件：
- * page_view_{$page->type}.tpl.php
- * page_view.tpl.php
+ * view_page_{$page->type}.tpl.php
+ * view_page.tpl.php
  * 
  */
 function page_template_preprocess_page_view(&$var, $hook) {
   if (isset($var['page']) && $var['page']->type) {
-    $var['theme_config']->tpl[] = 'page_view_' . $var['page']->type . '.tpl.php';
+    $var['theme_config']->tpl[] = 'view_page_' . $var['page']->type . '.tpl.php';
   } 
 }
 
+// public page_get_channel_info($key) {{{ 
+/**
+ * page_get_channel_info
+ * 获取频道信息
+ * 
+ * @param string $key 
+ *  指定频道系统名称，若不指定，则获取全部
+ * @access public
+ * @return array
+ */
+function page_get_channel_info($key = NULL) {
+  $infos = module_invoke_all('page_channel_info');
+  return $key ? $infos[$key] : $infos;
+}
+// }}}
 
+/**
+ * @Implement of hook_page_channel_info()
+ * 定义频道基本信息，频道和区块 key 不允许使用下划线
+ */
+//function page_page_channel_info() {
+//  return array(
+//    // key 不允许使用下划线(_)
+//    'front' => array(
+//      'title' => t('page', '首页'),
+//      'path' => 'front', // page 模块将通过 hook_menu() 注册该路径。注意：front 是一个特殊页面，即首页
+//      'blocks' => array( // 频道区块，注意，与系统 block.module 提供的区块不同
+//        'top' => array(
+//          'title' => t('page', '首页第一栏'), // 组名称
+//          'group' => true, // 区块组
+//          'block' => array( // 区块列表
+//            'show' => array(
+//              'title' => t('page', '幻灯片'), // 区块名称
+//              'type' => 'show', // 区块类型，可通过 hook_page_channel_block_data() 扩展类型
+//              'limit' => 5, // 允许添加几条记录
+//            ),
+//            'banner' => array(
+//              'title' => t('page', '广告图片'),
+//              'type' => 'image',
+//              'limit' => 2,
+//            ),
+//            'notice' => array(
+//              'title' => t('page', '网站动态'),
+//              'type' => 'link',
+//              'limit' => 5,
+//              'fields' => array( // 附加表单字段
+//                'small_title' => array(
+//                  '#title' => t('page', '短标题'),
+//                  '#type' => 'textfield',
+//                  '#required' => 1
+//                ) 
+//              )
+//            ),
+//          ),
+//        ),
+//      )
+//    ),
+//  );
+//}
+
+/**
+ * @Implement of hook_dd_storage_info()
+ */
+function page_dd_storage_info() {
+  if ($infos = module_invoke_all('page_channel_info')) {
+    foreach ($infos as $channel_key => $channel) {
+      if (empty($channel['blocks'])) continue;
+      if (strpos($channel_key, '_') !== false) {
+        dd_set_message(t('page', '不允许使用下划线(_)：!key', array('!key' => $channel_key)), 'error');
+        continue;
+      }
+
+      $storage['channel_' . $channel_key] = array();
+
+      foreach ($channel['blocks'] as $block_name => $block) {
+        if (strpos($block_name, '_') !== false) {
+          dd_set_message(t('page', '不允许使用下划线(_)：!key', array('!key' => $block_name)), 'error');
+          continue;
+        }
+
+        if (empty($block['group'])) {
+          $storage['channel_' . $channel_key][$block_name] = $block;
+        } else if (!empty($block['block']) && is_array($block['block'])) {
+          foreach ($block['block'] as $sub_key => $b) {
+            if (strpos($sub_key, '_') !== false) {
+              dd_set_message(t('page', '不允许使用下划线(_)：!key', array('!key' => $sub_key)), 'error');
+              continue;
+            }
+            $storage['channel_' . $channel_key][$block_name . '_' . $sub_key] = $b;
+          }
+        }
+      }
+    }
+  }
+  
+  return $storage;
+}
+
+/**
+ * @Implement of hook_dd_storage_form()
+ */
+function page_dd_storage_form($v, &$form, $info) {
+  if (substr($v->ext_type, 0, 8) == 'channel_') {
+    
+    if (!empty($info['size'])) {
+      $form['fields']['file']['#description'] = t('page', '最佳尺寸：!size', array('!size' => $info['size']));
+    }
+    
+    // 删除指定的表单字段
+		if (!empty($info['unfields']) && is_array($info['unfields'])) {
+      foreach ($info['unfields'] as $key) {
+				unset($form['fields']['data'][$key]);
+			}
+		}
+
+    // 附加指定的表单字段
+    if (!empty($info['fields']) && is_array($info['fields'])) {
+      foreach ($info['fields'] as $key => $field) {
+        if (isset($v->data[$key])) {
+          $field['#default_value'] = $v->data[$key];
+        }
+        $form['fields']['data'][$key] = $field;
+      }
+    }
+    
+    // 可根据频道区块数据类型，自定义表单
+    $op = 'form';
+    module_alter_all('page_channel_block_data', $op, $v, $form, $info);
+  }
+}
+
+/**
+ * @Implement of hook_dd_storage_validate()
+ */
+function page_dd_storage_validate($v, $form, $info) {
+  if (substr($v->ext_type, 0, 8) == 'channel_') {
+    $op = 'validate';
+    module_alter_all('page_channel_block_data', $op, $v, $form, $info);
+  }
+}
+
+/**
+ * @Implement of hook_dd_storage_save()
+ */
+function page_dd_storage_save($v, $form, $info) {
+  if (substr($v->ext_type, 0, 8) == 'channel_') {
+    $op = 'save';
+    module_alter_all('page_channel_block_data', $op, $v, $form, $info);
+  }
+}
+
+/**
+ * @Implement of hook_page_channel_block_data()
+ */
+function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NULL) {
+  switch ($op) {
+    case 'info': // 定义频道区块数据类型
+    return array(
+      'link' => array(
+        'title' => t('page', '文字链接'), 
+        'description' => t('page', '文字加超链接'),
+      ),
+      'image' => array(
+        'title' => t('page', '图片链接'), 
+        'description' => t('page', '图片和超链接'),
+      ),
+      'show' => array(
+        'title' => t('page', '幻灯片'), 
+        'description' => t('page', '简易幻灯片'),
+      ),
+    );
+
+    case 'form': // 数据维护表单
+      switch ($info['type']) {
+        case 'show': case 'image':
+          $form['fields']['file']['#required'] = !$v->data['file'];
+          $form['fields']['file']['#weight'] = -100;
+        break;
+        
+        case 'link':
+          unset($form['fields']['file']);
+          unset($form['fields']['data']['file']);
+        break;
+      }
+    break;
+
+    case 'validate': // 数据验证
+    break;
+
+    case 'save': // 数据保存
+    break;
+
+    case 'delete': // 删除记录
+      // @TODO 待完善
+    break;
+
+    case 'view': // 数据显示
+    break;
+  }
+}
 

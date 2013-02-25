@@ -3,3 +3,6 @@
   width: 450px;
 }
 
+#admin_page_channel_left li {
+  padding-left: 8px;
+}

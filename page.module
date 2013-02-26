@@ -824,10 +824,19 @@ function page_dd_storage_form($v, &$form, $info) {
     // 附加指定的表单字段
     if (!empty($info['fields']) && is_array($info['fields'])) {
       foreach ($info['fields'] as $key => $field) {
+        if ($key == 'file') {
+          $form['fields']['file'] = array_merge($form['fields']['file'], $field);
+          continue;
+        }
+
         if (isset($v->data[$key])) {
           $field['#default_value'] = $v->data[$key];
         }
-        $form['fields']['data'][$key] = $field;
+        if (!empty($form['fields']['data'][$key])) {
+          $form['fields']['data'][$key] = array_merge($form['fields']['data'][$key], $field);
+        } else {
+          $form['fields']['data'][$key] = $field;
+        }
       }
     }
     

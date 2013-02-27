@@ -877,6 +877,10 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
         'title' => t('page', '文字链接'), 
         'description' => t('page', '文字加超链接'),
       ),
+      'textarea' => array(
+        'title' => t('page', '长文本链接'), 
+        'description' => t('page', '长文本加超链接'),
+      ),
       'image' => array(
         'title' => t('page', '图片链接'), 
         'description' => t('page', '图片和超链接'),
@@ -898,6 +902,14 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
           unset($form['fields']['file']);
           unset($form['fields']['data']['file']);
         break;
+        
+        case 'textarea':
+          $form['fields']['data']['title']['#type'] = 'textarea';
+          $form['fields']['data']['title']['#title'] = t('page', '内容');
+          $form['fields']['data']['path']['#required'] = false;
+          unset($form['fields']['file']);
+          unset($form['fields']['data']['file']);
+        break;
       }
     break;
 
@@ -915,4 +927,3 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
     break;
   }
 }
-

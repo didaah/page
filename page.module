@@ -161,21 +161,23 @@ function page_load_view($pid) {
     $lang = $args[3];
   }
 
-  if ($page = page_load($pid, $lang)) {
+  $i = 0;
+
+  while ($page = page_load($pid, $lang)) {
     if ($page->type != $args[1]) return false; // 类型不符，非法请求
-
     // 所请求的语言没有内容，则使用默认
-    if (empty($page->languages[$lang])) {
+    if (!empty($page->languages[$lang])) {
+      $page->language = $lang; // 所请求的语言
+      // 0 则为 html，不做输入解析
+      if (!empty($page->languages[$lang]->format)) {
+        $page->languages[$lang]->body = filter_view($page->languages[$lang]->body, $page->languages[$lang]->format);
+      }
+      return $page;
+    } else {
       $lang = $page->default_lang;
+      $i++;
     }
-
-    $page->language = $lang; // 所请求的语言
-    // 0 则为 html，不做输入解析
-    if (!empty($page->languages[$lang]->format) && !empty($page->languages[$lang])) {
-      $page->languages[$lang]->body = filter_view($page->languages[$lang]->body, $page->languages[$lang]->format);
-    }
-
-    return $page;
+    if ($i > 1) break;
   }
 }
 
@@ -189,7 +191,7 @@ function page_load_view($pid) {
  */
 function page_load($pid, $lang = NULL) {
   static $data;
-  if (!isset($data[$pid])) {
+  if (!isset($data[$pid . $lang])) {
     if ($page = db_query('SELECT * FROM {pages} WHERE pid = ?', array($pid), array('return' => 'one'))) {
 
       $page->nid = $page->pid;
@@ -213,10 +215,10 @@ function page_load($pid, $lang = NULL) {
         }
       }
     }
-    $data[$pid] = $page;
+    $data[$pid . $lang] = $page;
   }
 
-  return $data[$pid];
+  return $data[$pid . $lang];
 }
 
 /**

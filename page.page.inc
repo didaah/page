@@ -6,7 +6,6 @@
  * @param object $page
  */
 function page_view($page) {
-  
   dd_set_title(array($page->languages[$page->language]->title));
   
   module_invoke_all('page_view', $page);

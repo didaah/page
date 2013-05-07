@@ -164,6 +164,10 @@ function page_load_view($pid) {
   if ($page = page_load($pid, $lang)) {
     if ($page->type == $args[1] && $page->languages[$lang] ) {
       $page->language = $lang; // 所请求的语言
+      // 0 则为 html，不做输入解析
+      if (!empty($page->languages[$lang]->format)) {
+        $page->languages[$lang]->body = filter_view($page->languages[$lang]->body, $page->languages[$lang]->format);
+      }
       return $page;
     }
   }
@@ -188,7 +192,7 @@ function page_load($pid, $lang = NULL) {
 
       $args = array($page->pid);
 
-      $query = 'SELECT title, body, lang FROM {pages_lang} WHERE pid = ?';
+      $query = 'SELECT title, body, lang, format FROM {pages_lang} WHERE pid = ?';
 
       if (!empty($lang)) {
         $query .= ' AND lang = ?';
@@ -218,7 +222,11 @@ function page_load($pid, $lang = NULL) {
  * @return array 
  */
 function page_form($page, $info = NULL) {
-  
+  $form = array(
+    'fields' => array(),
+    'settings' => array(),
+  );
+
   $form['fields']['type'] = array(
     '#type' => 'hidden',
     '#default_value' => $page->type,
@@ -289,6 +297,8 @@ function page_form($page, $info = NULL) {
       '#default_value' => isset($page->languages[$code]) ? $page->languages[$code]->body : '',
       '#attributes' => array('rows' => 8, 'cols' => 60)
     );
+    
+    $form['fields']['languages'][$code]['format'] = filter_form_field($page->languages[$code]->format);
     
     dd_get_editor('page_form_type_languages_' . $code . '_body', array(
       'toolbar' => 'medium',

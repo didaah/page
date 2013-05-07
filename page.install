@@ -2,6 +2,21 @@
 // $Id$
 
 /**
+ * @Implement of hook_update_x()
+ */
+function page_update_1() {
+  $field = array(
+    'type' => 'int',
+    'default' => 0,
+    'description' => '输入格式',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  );
+
+  return db_add_field('pages_lang', 'format', $field);
+}
+
+/**
  * @Implement of hook_schema()
  */
 function page_schema() {
@@ -79,6 +94,13 @@ function page_schema() {
         'type' => 'int',
         'default' => 0,
         'description' => '关联 pages 表',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'format' => array(
+        'type' => 'int',
+        'default' => 0,
+        'description' => '输入格式',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),

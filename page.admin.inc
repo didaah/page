@@ -14,7 +14,7 @@ function page_admin_lists($type) {
   
   $tabs = array(
     l($info['title'], 'admin/page/' . $type),
-    l('创建新页面', 'admin/page/' . $type . '/add')
+    l('创建内容', 'admin/page/' . $type . '/add')
   );
   
   dd_set_title(array($info['title']));

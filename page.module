@@ -639,10 +639,7 @@ function page_comment_view($comment) {
     $comment->nid = $comment->cid;
     field_get_node_load('page', 'page_form_' . $comment->ext_id, $comment);
     field_get_node_view('page', 'page_form_' . $comment->ext_id, $comment, 2);
-  
     $comment->field_html = field_get_node_html('page', $comment, 'page_form_' . $comment->ext_id);
-    
-    $comment->body = $comment->field_html .  '<div>' . $comment->body . '</div>';
   }
 }
 

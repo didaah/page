@@ -510,8 +510,8 @@ function page_get_cache_page_form_id($clear = false) {
     WHERE type = ? ORDER BY pid ASC', array('form'))) {
       $data = array();
       foreach ($fetch as $o) {
-        $data = unserialize($o->data);
-        $data[$o->pid] = $data['titles'][$o->default_lang];
+        $d = unserialize($o->data);
+        $data[$o->pid] = $d['titles'][$o->default_lang];
       }
     } else {
       $data = -1;

@@ -271,7 +271,7 @@ function page_form($page, $info = NULL) {
     '#type' => 'select',
     '#fieldset_suffix' => 1,
     '#options' => $conf['languages'],
-    '#default_value' => $GLOBALS['language_code'],
+    '#default_value' => !empty($page->default_lang) ? $page->default_lang : $GLOBALS['language_code'],
     '#description' => t('page', '当没有对应语言的内容时，将使用此处指定的默认语言')
   );
 
@@ -307,14 +307,6 @@ function page_form($page, $info = NULL) {
     );
     
     $form['fields']['languages'][$code]['format'] = filter_form_field($page->languages[$code]->format);
-    
-    dd_get_editor('page_form_type_languages_' . $code . '_body', array(
-      'toolbar' => 'medium',
-      'upload_image' => 1,
-      'swfupload' => 1,
-      'watermark' => 'no',
-      'height' => 300,
-    ));
   }
  
   $form['fields']['button'] = array(

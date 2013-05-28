@@ -476,7 +476,6 @@ function page_form_is_access($op, $page, $ac = NULL) {
 }
 // }}}
 
-
 /**
  * @Implement of hook_page_save();
  */
@@ -641,6 +640,24 @@ function page_comment_view($comment) {
 function page_comment_is_create($comment) {
   if ($comment->ext_type == 'page_form') {
     $comment->is_create = page_form_is_access('add', page_load($comment->ext_id));
+  }
+}
+
+/**
+ * @Implement of hook_comment_is_delete()
+ */
+function page_comment_is_delete($comment) {
+  if ($comment->ext_type == 'page_form') {
+    $comment->is_delete = $GLOBALS['user']->uid == 1 || page_form_is_access('udpate', page_load($comment->ext_id));
+  }
+}
+
+/**
+ * @Implement of hook_comment_is_update()
+ */
+function page_comment_is_udpae($comment) {
+  if ($comment->ext_type == 'page_form') {
+    $comment->is_update = $GLOBALS['user']->uid == 1 || page_form_is_access('udpate', page_load($comment->ext_id));
   }
 }
 

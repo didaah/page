@@ -30,8 +30,6 @@ function page_page_view($page) {
     $comment->title = '';
     
     $page->comment->form = dd_get_form('comment_form', $comment);
-  } else {
-    $page->comment->form = system_no_content(t('page', '你没有权限使用该表单'));
   }
 
   if (page_form_is_access('view', $page)) {

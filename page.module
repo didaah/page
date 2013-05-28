@@ -605,11 +605,21 @@ function page_comment_validate($comment) {
 }
 
 /**
+ * @Implement of hook_comment_delete() 
+ */
+function page_comment_delete($comment) {
+  if ($comment->ext_type == 'page_form') {
+    $comment->redirect = url('page/' . str_replace('page_', '', $comment->ext_type) . '/' . $comment->ext_id);
+  }
+}
+
+/**
  * @Implement of hook_comment_save() 
  */
 function page_comment_save($comment) {
   if ($comment->ext_type == 'page_form' && _page_is_page_comment_form($comment)) {
     field_get_node_save('page', 'page_form_' . $comment->ext_id, $comment);
+    $comment->redirect = url('page/' . str_replace('page_', '', $comment->ext_type) . '/' . $comment->ext_id);
   }
 }
 
@@ -623,7 +633,7 @@ function page_comment_load($comment) {
 }
 
 /**
- * @Implement of hook_comment_save() 
+ * @Implement of hook_comment_view() 
  */
 function page_comment_view($comment) {
   if ($comment->ext_type == 'page_form') {
@@ -655,9 +665,18 @@ function page_comment_is_delete($comment) {
 /**
  * @Implement of hook_comment_is_update()
  */
-function page_comment_is_udpae($comment) {
+function page_comment_is_update($comment) {
   if ($comment->ext_type == 'page_form') {
     $comment->is_update = $GLOBALS['user']->uid == 1 || page_form_is_access('udpate', page_load($comment->ext_id));
+  }
+}
+
+/**
+ * @Implement of hook_comment_goto()
+ */
+function page_comment_goto($comment) {
+  if ($comment->ext_type == 'page_form') {
+    return 'page/' . str_replace('page_', '', $comment->ext_type) . '/' . $comment->ext_id;
   }
 }
 

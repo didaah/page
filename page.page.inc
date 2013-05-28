@@ -21,7 +21,13 @@ function page_page_view($page) {
   if ($page->type != 'form') return;
 
   $page->comment = new stdClass;
-  
+ 
+  if (page_form_is_access('view', $page)) {
+    if ($data = comment_ext_view('page_form', $page->pid, 20, 1, 'desc')) {
+      $page->comment = $data;
+    }
+  }
+ 
   if (page_form_is_access('add', $page)) {
     $comment = new stdClass;
     $comment->ext_type = 'page_form';
@@ -30,12 +36,6 @@ function page_page_view($page) {
     $comment->title = '';
     
     $page->comment->form = dd_get_form('comment_form', $comment);
-  }
-
-  if (page_form_is_access('view', $page)) {
-    if ($data = comment_ext_view('page_form', $page->pid, 20, 1, 'desc')) {
-      $page->comment = $data;
-    }
   }
 }
 

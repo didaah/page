@@ -34,7 +34,7 @@ function page_page_view($page) {
 
   if (page_form_is_access('view', $page)) {
     if ($data = comment_ext_view('page_form', $page->pid, 20, 1, 'desc')) {
-      $page->comment->view = $data;
+      $page->comment = $data;
     }
   }
 }

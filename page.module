@@ -710,6 +710,7 @@ function page_template_preprocess_page_channel_block(&$var, $hook) {
 function page_template_preprocess_page_view(&$var, $hook) {
   if (isset($var['page']) && $var['page']->type) {
     $var['theme_config']->tpl[] = 'view_page_' . $var['page']->type . '.tpl.php';
+    $var['theme_config']->tpl[] = 'view_page_' . $var['page']->pid . '.tpl.php';
   } 
 }
 

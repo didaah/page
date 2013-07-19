@@ -658,7 +658,7 @@ function page_comment_is_create($comment) {
  */
 function page_comment_is_delete($comment) {
   if ($comment->ext_type == 'page_form') {
-    $comment->is_delete = $GLOBALS['user']->uid == 1 || page_form_is_access('udpate', page_load($comment->ext_id));
+    $comment->is_delete = $GLOBALS['user']->uid == 1 || page_form_is_access('update', page_load($comment->ext_id));
   }
 }
 
@@ -667,7 +667,7 @@ function page_comment_is_delete($comment) {
  */
 function page_comment_is_update($comment) {
   if ($comment->ext_type == 'page_form') {
-    $comment->is_update = $GLOBALS['user']->uid == 1 || page_form_is_access('udpate', page_load($comment->ext_id));
+    $comment->is_update = $GLOBALS['user']->uid == 1 || page_form_is_access('update', page_load($comment->ext_id));
   }
 }
 

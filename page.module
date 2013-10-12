@@ -980,7 +980,6 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
         case 'show': case 'image':
           // 下载并保存远程图片
           if (!empty($v->webfile)) {
-            dd_set_message('file');
             if ($data = file_get_contents($v->webfile)) {
               $validate = NULL;
               if (is_array($form['fields']['file']['#options'])) {

@@ -901,6 +901,16 @@ function page_dd_storage_validate($v, $form, $info) {
 }
 
 /**
+ * @Implement of hook_dd_storage_before()
+ */
+function page_dd_storage_before($v, $form, $info) {
+  if (substr($v->ext_type, 0, 8) == 'channel_') {
+    $op = 'before';
+    module_alter_all('page_channel_block_data', $op, $v, $form, $info);
+  }
+}
+
+/**
  * @Implement of hook_dd_storage_save()
  */
 function page_dd_storage_save($v, $form, $info) {
@@ -938,10 +948,15 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
     case 'form': // 数据维护表单
       switch ($info['type']) {
         case 'show': case 'image':
-          $form['fields']['file']['#required'] = !$v->data['file'];
           $form['fields']['file']['#weight'] = -100;
+          $form['fields']['webfile'] = array(
+            '#type' => 'textfield',
+            '#title' => t('page', '远程'),
+            '#description' => '远程图片地址，系统自动下载',
+            '#weight' => -99,
+          );
         break;
-        
+
         case 'link':
           unset($form['fields']['file']);
           unset($form['fields']['data']['file']);
@@ -960,7 +975,34 @@ function page_page_channel_block_data($op, &$v = NULL, &$form = NULL, $info = NU
     case 'validate': // 数据验证
     break;
 
-    case 'save': // 数据保存
+    case 'before': // 验证通过之后，保存之前 
+      switch ($info['type']) {
+        case 'show': case 'image':
+          // 下载并保存远程图片
+          if (!empty($v->webfile)) {
+            dd_set_message('file');
+            if ($data = file_get_contents($v->webfile)) {
+              $validate = NULL;
+              if (is_array($form['fields']['file']['#options'])) {
+                $validate = $form['fields']['file']['#options'];
+              }
+
+              $validate['no_insert'] = true;
+              $validate['image'] = array(
+                'type' => array('jpg', 'png', 'gif', 'jpeg'),
+              );
+              $validate['savepath'] = 'storage';
+              $validate['filename'] = $v->id . '.' . end(explode('.', basename($v->webfile)));
+              if ($file = file_save_data($data, $validate, 0)) {
+                if ($v->data['file'] && $file->filepath == $v->data['file']) {
+                  file_delete_dir(str_replace(end(explode('/', $file->filepath)), $v->id, $file->filepath));
+                }
+                $v->data['file'] = $file->filepath;
+              }
+            }
+          }
+        break;
+      }
     break;
 
     case 'delete': // 删除记录
